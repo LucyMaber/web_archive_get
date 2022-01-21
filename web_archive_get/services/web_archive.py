@@ -1,6 +1,5 @@
 
 import datetime
-from functools import cache
 import json
 import time
 from urllib import request
@@ -10,7 +9,7 @@ from requests.models import PreparedRequest
 from warcio.archiveiterator import ArchiveIterator
 import asyncio
 import gzip
-from services.cdx import CDX
+from web_archive_get.services.cdx import CDX
 from io import BytesIO
 import tldextract
 

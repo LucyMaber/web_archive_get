@@ -1,5 +1,4 @@
 
-from functools import cache
 import gzip
 from io import BytesIO
 import json
@@ -10,7 +9,7 @@ from aiohttp import ClientSession
 from requests.models import PreparedRequest
 from warcio.archiveiterator import ArchiveIterator
 import asyncio
-from services.cdx import CDX
+from web_archive_get.services.cdx import CDX
 
 
 class common_crawl_index_url():

@@ -7,7 +7,7 @@ from urllib import request
 from urllib.parse import urljoin
 from aiohttp import ClientSession
 from requests.models import PreparedRequest
-from services.cdx import CDX
+from web_archive_get.services.cdx import CDX
 
 
 class arquivo_url:

@@ -1,11 +1,11 @@
 from setuptools import setup
 
-with open("README.md", "r" ) as fh:
+with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
     name='web_archive_get',
-    version='0.0.31.2',
+    version='0.1.0.0',
     description='a tool to find archived web pages from different websites using multiple different services',
     url='https://github.com/WilliamMaber/web_archive_get/',
     author='Willdor',

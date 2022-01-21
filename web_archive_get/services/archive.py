@@ -32,6 +32,7 @@ class archive_url():
 
 class archive():
     def __init__(self) -> None:
+        self.__can_filter = False
         self.endpoint = "http://archive.is"
 
     async def list_page(self, url, roles=[]):
@@ -45,13 +46,13 @@ class archive():
                 for i in m:
                     yield archive_url({"href": i.group(1), "rel": i.group(2), "datetime": i.group(3)})
 
-    async def list_subdoamin(self, url, roles=[]):
+    async def list_subdoamin(self, url, roles={}):
         yield
 
-    async def search_url_host(self, url, roles=[]):
+    async def search_url_host(self, url, roles={}):
         yield
 
-    async def search_url_subpath(self, url, roles=[]):
+    async def search_url_subpath(self, url, roles={}):
         yield
 
     async def lookup(url, params):

@@ -1,27 +1,26 @@
 class CDX:
+    __can_filter = True
+
     def __init__(self) -> None:
         pass
 
-    async def list_page(self, url, roles=[]):
-        params = {}
-        for i in await self.lookup(url, params):
+    async def list_page(self, url, role=[]):
+        for i in await self.lookup(url, role):
             yield i
 
-    async def list_subdoamin(self, url, roles=[]):
-        params = {"matchType": "domain"}
-        for i in await self.lookup(url, params):
+    async def list_subdoamin(self, url, role=[]):
+        role.append(("matchType", "domain"))
+        for i in await self.lookup(url, role):
             yield i
 
-    async def search_url_host(self, url, roles=[]):
-        params = {
-            "matchType": "host"
-        }
-        for i in await self.lookup(url, params):
+    async def search_url_host(self, url, role=[]):
+        role.append(("matchType", "host"))
+        for i in await self.lookup(url, role):
             yield i
 
-    async def search_url_subpath(self, url, roles=[]):
-        params = {"matchType": "prefix"}
-        for i in await self.lookup(url, params):
+    async def search_url_subpath(self, url, role=[]):
+        role.append(("matchType", "prefix"))
+        for i in await self.lookup(url, role):
             yield i
 
     async def lookup(url, params):

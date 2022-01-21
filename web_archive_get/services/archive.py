@@ -4,7 +4,7 @@ from requests.models import PreparedRequest
 import re
 
 
-class archive_url():f
+class archive_url():
     def __init__(self, data):
         self.data = data
 

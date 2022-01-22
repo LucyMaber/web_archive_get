@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='web_archive_get',
-    version='0.1.0.0',
+    version='0.1.0.6122',
     description='a tool to find archived web pages from different websites using multiple different services',
     url='https://github.com/WilliamMaber/web_archive_get/',
     author='Willdor',
@@ -13,7 +13,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='BSD 2-clause',
-    packages=['web_archive_get'],
+    packages=['web_archive_get', "web_archive_get.services"],
     install_requires=['aiohttp', 'warcio'],
 
     classifiers=[

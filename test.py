@@ -4,11 +4,11 @@ import web_archive_get
 
 async def main():
     c = [
-        [("url", "bbc.co.uk")]
+        [["url", "bbc.co.uk"], ["filter", "mimetype:text/html"]]
     ]
     a = web_archive_get.list_bulk_subdoamin2(c)
-    # print(a)
     async for i in a:
+        # print(i.get_url())
         if i is None:
             continue
 

@@ -2,14 +2,14 @@
 import gzip
 from io import BytesIO
 import json
-from pickle import FALSE
-from urllib import request
 from urllib.parse import urljoin
 from aiohttp import ClientSession
-from requests.models import PreparedRequest
+from web_archive_get.utils import prepare_url
 from warcio.archiveiterator import ArchiveIterator
 import asyncio
+
 from web_archive_get.services.cdx import CDX
+import requests
 
 
 class common_crawl_index_url():
@@ -29,17 +29,14 @@ class common_crawl_index_url():
         return self.data["original"]
 
     async def request(self):
-        print(self.data)
         url_dir = urljoin("https://commoncrawl.s3.amazonaws.com/",
                           self.data["filename"])
         ok = False
         while not ok:
-            print("get pages")
             async with ClientSession() as client:
                 async with client.get(url_dir, timeout=9999999) as response:
                     if response.ok:
                         ok = response.ok
-                        print(response.content)
                         outstr = gzip.decompress(await response.content.read())
                         for record in ArchiveIterator(BytesIO(outstr), arc2warc=True):
                             if record.rec_type == "response":
@@ -62,6 +59,53 @@ class common_crawl_index(CDX):
                 for i in await response.json():
                     self.endpoints.append(i["cdx-api"])
 
+    async def init_2m(self, client):
+        self.endpoints = []
+        async with client.get("https://index.commoncrawl.org/collinfo.json", timeout=9999999) as response:
+            for i in await response.json():
+                self.endpoints.append(i["cdx-api"])
+
+    def n_init_2(self):
+        self.endpoints = []
+        response = requests.get(
+            "https://index.commoncrawl.org/collinfo.json", timeout=9999999)
+        for i in response.json():
+            self.endpoints.append(i["cdx-api"])
+
+    async def async_bulk_lookup(self, parameter, session):
+        parameter.append(("output", "json"))
+        parameter_page_Count = parameter
+        if not self.setup:
+            self.setup = True
+            await self.init_2m(session)
+        # RUN IN EVIL MODE
+        page_f = {}
+        for endpoint in self.endpoints:
+            parameter_page_Count.append(("showNumPages", "true"))
+            url = prepare_url(endpoint, parameter_page_Count)
+            ok = False
+            while not ok:
+                async with session.get(url) as response:
+                    if response.ok:
+                        page_f = json.loads(await response.text())
+                    ok = response.ok
+            for pageNum in (range(page_f["pages"])):
+                parameter_page_n = parameter[0:-1]
+                parameter_page_n.append(("page", str(pageNum)))
+                url = prepare_url(endpoint, parameter_page_n)
+                ok = False
+                while not ok:
+                    async with session.get(url) as response:
+                        if response.ok:
+                            links = (await response.text()).split("\n")
+                            for link in links:
+                                try:
+                                    x = json.loads(link)
+                                    yield common_crawl_index_url(x)
+                                except:
+                                    pass
+                        ok = response.ok
+
     async def lookup(self, url, params):
         if not self.setup:
             self.setup = True
@@ -73,13 +117,11 @@ class common_crawl_index(CDX):
             params.append(("output", "json"))
             params.append(("url", url))
             for endpoint in self.endpoints:
-                req_page = PreparedRequest()
                 params.append(("showNumPages", "true"))
-                req_page.prepare_url(endpoint, params)
+                url = prepare_url(endpoint, params)
                 ok = False
                 while not ok:
-                    print("trying to get page count: ", req_page.url)
-                    async with client.get(req_page.url) as response:
+                    async with client.get(url) as response:
                         if response.ok:
 
                             page_f = await response.text()
@@ -90,29 +132,63 @@ class common_crawl_index(CDX):
                 for pageNum in (range(page_f["pages"])):
                     params.append(("showNumPages", "false"))
                     params.append(("page", pageNum))
-                    req_page.prepare_url(endpoint, params)
-                    print("trying to get page: ", req_page.url)
+                    print("page:", pageNum)
+                    url = prepare_url(endpoint, params)
                     ok = False
                     while not ok:
-                        async with client.get(req_page.url) as response:
+                        async with client.get(url) as response:
                             if response.ok:
                                 links = (await response.text()).split("\n")
                                 for link in links:
                                     try:
                                         x = json.loads(link)
-                                        list_url.append(
-                                            common_crawl_index_url(x))
+                                        yield common_crawl_index_url(x)
                                     except:
                                         pass
                             ok = response.ok
-        return list_url
+
+    def blocking_lookup(self, url, params):
+        if not self.setup:
+            self.setup = True
+            self.n_init_2()
+        # RUN IN EVIL MODE
+        list_url = []
+        page_f = {}
+        params.append(("output", "json"))
+        params.append(("url", url))
+        for endpoint in self.endpoints:
+            params.append(("showNumPages", "true"))
+            url = prepare_url(endpoint, params)
+            ok = False
+            while not ok:
+                response = requests.get(url)
+                if response.ok:
+                    page_f = response.text
+                ok = response.ok
+            params.append(("showNumPages", "false"))
+            page_f = json.loads(page_f)
+            for pageNum in (range(page_f["pages"])):
+                params.append(("showNumPages", "false"))
+                params.append(("page", pageNum))
+                url = prepare_url(endpoint, params)
+                ok = False
+                while not ok:
+                    response = requests.get(url)
+                    if response.ok:
+                        links = (response.text).split("\n")
+                        for link in links:
+                            try:
+                                x = json.loads(link)
+                                yield common_crawl_index_url(x)
+                            except:
+                                pass
+                    ok = response.ok
 
 
 async def main_1():
     cc = common_crawl_index()
 
-    a = await cc.search_url_subpath("www.pirateparty.org.uk/blog/")
-    print(type(await a[0].request()))
+    a = await cc.async_search_url_subpath("www.pirateparty.org.uk/blog/")
 
 
 if __name__ == '__main__':

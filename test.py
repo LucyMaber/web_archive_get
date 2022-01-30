@@ -3,10 +3,14 @@ import web_archive_get
 
 
 async def main():
-    async for i in web_archive_get.list_subdoamin("www.bbc.co.uk"):
+    c = [
+        [("url", "bbc.co.uk")]
+    ]
+    a = web_archive_get.list_bulk_subdoamin2(c)
+    # print(a)
+    async for i in a:
         if i is None:
             continue
-        print(i.get_url())
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()

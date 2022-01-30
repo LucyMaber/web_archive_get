@@ -9,6 +9,7 @@ from requests.models import PreparedRequest
 from warcio.archiveiterator import ArchiveIterator
 import asyncio
 import gzip
+from web_archive_get.utils import prepare_url
 from web_archive_get.services.cdx import CDX
 from io import BytesIO
 import tldextract
@@ -67,14 +68,39 @@ class web_archive(CDX):
                 l = {}
                 for count, item in enumerate(data[0], start=0):
                     l[item] = i[count]
-                x.append(web_archive_url(l))
-        return x
+                yield web_archive_url(l)
 
+    async def async_bulk_lookup(self, parameter, session):
+        parameter.append(("output", "json"))
+        parameter_page_Count = parameter
+        parameter_page_Count.append(("showNumPages", "true"))
+        for endpoint in self.endpoints:
+            url_count = prepare_url(endpoint, parameter_page_Count)
+            async with lock:
+                async with session.get(url_count, timeout=9999999) as response:
+                    count_ = int(await response.text())
+                for i in range(count_):
+                    parameter_page_n = parameter[0:-1]
+                    parameter_page_n.remove(("showNumPages", "true"))
+                    parameter_page_n.append(("page", str(i)))
+                    url_ = prepare_url(endpoint, parameter_page_n)
+                    print(url_)
+                    async with session.get(url_, timeout=9999999) as response:
+                        if response.ok:
+                            data = await response.json()
+                        for i in data[1:]:
+                            l = {}
+                            for count, item in enumerate(data[0], start=0):
+                                l[item] = i[count]
+                            yield web_archive_url(l)
+
+
+lock = asyncio.Lock()
 
 if __name__ == '__main__':
     cc = web_archive()
     loop = asyncio.get_event_loop()
-    a = cc.search_url_subpath("www.pirateparty.org.uk/blog/")
+    a = cc.async_search_url_subpath("www.pirateparty.org.uk/blog/")
     s = loop.run_until_complete(a)
     text = loop.run_until_complete(s[0].request())
     #

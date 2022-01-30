@@ -1,6 +1,6 @@
 import asyncio
 from aiohttp import ClientSession
-from requests.models import PreparedRequest
+from web_archive_get.utils import prepare_url
 import re
 
 
@@ -35,7 +35,7 @@ class archive():
         self.__can_filter = False
         self.endpoint = "http://archive.is"
 
-    async def list_page(self, url, roles=[]):
+    async def async_list_page(self, url, roles=[]):
         alist = []
         reg = '<([0-z:\/.]+)>; rel="([a-z ]*)"; datetime="([0-z, ]*)"'
         params = "http://archive.is/timemap/" + url
@@ -46,16 +46,16 @@ class archive():
                 for i in m:
                     yield archive_url({"href": i.group(1), "rel": i.group(2), "datetime": i.group(3)})
 
-    async def list_subdoamin(self, url, roles={}):
+    async def async_list_subdoamin(self, url, roles={}):
         yield
 
-    async def search_url_host(self, url, roles={}):
+    async def async_search_url_host(self, url, roles={}):
         yield
 
-    async def search_url_subpath(self, url, roles={}):
+    async def async_search_url_subpath(self, url, roles={}):
         yield
 
-    async def lookup(url, params):
+    async def blocking_lookup(url, params):
         yield
 
 

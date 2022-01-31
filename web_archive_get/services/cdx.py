@@ -1,7 +1,9 @@
 import aiohttp
 
+from web_archive_get.services.services import services
 
-class CDX:
+
+class CDX(services):
     __can_filter = True
 
     def __init__(self) -> None:
@@ -28,29 +30,24 @@ class CDX:
      # BLUK
 
     async def async_bulk_list_page(self, parameter, session):
-        parameter.append(("matchType", "prefix"))
         async for i in self.async_bulk_lookup(list(parameter), session):
             yield i
 
     async def async_bulk_list_subdoamin(self, parameters, session):
-        parameters.append(("matchType", "domain"))
-        async for i in self.async_bulk_lookup(list(parameters), session):
+        async for i in self.async_bulk_lookup((parameters), session):
             yield i
 
     async def async_bulk_list_subdoamin(self, parameters, session):
-        parameters.append(("matchType", "domain"))
-        async for i in self.async_bulk_lookup(list(parameters), session):
+        async for i in self.async_bulk_lookup((parameters), session):
             yield i
 
     async def async_bulk_search_url_host(self, parameters, session):
         for parameter in parameters:
-            parameter.append(("matchType", "host"))
             async for i in self.async_bulk_lookup(list(parameter), session):
                 yield i
 
     async def async_bulk_search_url_subpath(self, parameters, session):
         for parameter in parameters:
-            parameter.append(("matchType", "prefix"))
             async for i in self.async_bulk_lookup(list(parameter), session):
                 yield i
     # Blocking
@@ -60,17 +57,14 @@ class CDX:
             yield i
 
     def blocking_list_subdoamin(self, url, role=[]):
-        role.append(("matchType", "domain"))
         for i in self.blocking_lookup(url, role):
             yield i
 
     def blocking_search_url_host(self, url, role=[]):
-        role.append(("matchType", "host"))
         for i in self.blocking_lookup(url, role):
             yield i
 
     def blocking_search_url_subpath(self, url, role=[]):
-        role.append(("matchType", "prefix"))
         for i in self.blocking_lookup(url, role):
             yield i
 

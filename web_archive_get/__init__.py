@@ -6,6 +6,8 @@ An example python library.
 
 from aiostream import stream
 import aiostream
+
+from web_archive_get.services.common_crawl_index import common_crawl_index
 __version__ = "0.1.0.5"
 __author__ = 'Willdor'
 __credits__ = ''
@@ -13,7 +15,6 @@ __credits__ = ''
 import asyncio
 from aiohttp import ClientSession
 from web_archive_get.services.archive import archive
-from web_archive_get.services.common_crawl_index import common_crawl_index
 from web_archive_get.services.web_archive import web_archive
 from web_archive_get.services.arquivo import arquivo
 
@@ -82,7 +83,6 @@ async def list_bulk_subdoamin2(configs):
     data = []
     async with ClientSession() as client:
         for config in configs:
-            config.append(("matchType", "domain"))
             for i in __archive_list:
                 data.append(i.async_bulk_list_subdoamin(config, client))
         combine = stream.merge(*data)

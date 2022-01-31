@@ -1,5 +1,6 @@
 import asyncio
 from aiohttp import ClientSession
+from web_archive_get.services.services import services
 from web_archive_get.utils import prepare_url
 import re
 
@@ -30,7 +31,7 @@ class archive_url():
         return self.data["original"]
 
 
-class archive():
+class archive(services):
     def __init__(self) -> None:
         self.__can_filter = False
         self.endpoint = "http://archive.is"

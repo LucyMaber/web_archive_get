@@ -8,7 +8,7 @@ async def main():
     ]
     a = web_archive_get.list_bulk_subdoamin2(c)
     async for i in a:
-        # print(i.get_url())
+        print(i.get_url())
         if i is None:
             continue
 

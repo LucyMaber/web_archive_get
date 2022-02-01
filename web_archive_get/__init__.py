@@ -22,8 +22,8 @@ __web_archive = web_archive()
 __arquivo = arquivo()
 __cc = common_crawl_index()
 __archive_list = [
-    __web_archive,
-    # __arquivo,
+    # __web_archive,
+    __arquivo,
     # __archive,
     # __cc
 ]
@@ -39,17 +39,21 @@ async def list_page(url, roles=[], archive_list=__archive_list):
 # bluk v1
 
 
-async def list_bulk(configs):
+async def list_bulk(configs, archive_list=__archive_list):
     # asyncio.as_completed
     data = []
     async with ClientSession() as client:
         for config in configs:
-            for i in __archive_list:
+            for i in archive_list:
                 data.append(i.list_bulk(config, client))
         combine = stream.merge(*data)
         async with combine.stream() as streamer:
             async for item in streamer:
-                yield item
+                print("!", type(item))
+                if isinstance(item, str):
+                    yield item
+                else:
+                    print("w", item)
 
 
 # blocking

@@ -2,6 +2,7 @@
 import gzip
 from io import BytesIO
 import json
+import time
 from urllib.parse import urljoin
 from aiohttp import ClientSession
 from web_archive_get.utils import prepare_url
@@ -10,6 +11,59 @@ import asyncio
 
 from web_archive_get.services.cdx import CDX
 import requests
+fls = [
+    "urlkey",
+    "timestamp",
+    "url",
+    "mime",
+    "status",
+    "digest",
+    "length",
+    "offset",
+    "filename"
+]
+fliter_fliters = []
+for fl in fls:
+    fliter_fliters.append({
+        "start": ".*",
+        "end": "",
+        "operator": "~",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "~"
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "=",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "="
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "!",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "!"
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "!=",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "!="
+    })
+    fliter_fliters.append({
+        "start": ".*",
+        "end": "",
+        "operator": "!~",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "!~"
+    })
 
 
 class common_crawl_index_url():
@@ -45,6 +99,9 @@ class common_crawl_index_url():
                                 return record.content_stream().read()
 
 
+lock = asyncio.Lock()
+
+
 class common_crawl_index(CDX):
     def __init__(self) -> None:
         self.endpoints = [
@@ -52,18 +109,20 @@ class common_crawl_index(CDX):
         ]
         self.setup = False
 
-    async def init_2(self):
+    async def init2_async(self):
         self.endpoints = []
         async with ClientSession() as client:
             async with client.get("https://index.commoncrawl.org/collinfo.json", timeout=9999999) as response:
                 for i in await response.json():
                     self.endpoints.append(i["cdx-api"])
+        pass
 
-    async def init_2m(self, client):
+    async def init_async(self, client):
         self.endpoints = []
         async with client.get("https://index.commoncrawl.org/collinfo.json", timeout=9999999) as response:
             for i in await response.json():
                 self.endpoints.append(i["cdx-api"])
+        pass
 
     def n_init_2(self):
         self.endpoints = []
@@ -73,157 +132,94 @@ class common_crawl_index(CDX):
             self.endpoints.append(i["cdx-api"])
 
     async def async_bulk_lookup(self, parameter, session):
-        parameter.append(("output", "json"))
         if not self.setup:
             self.setup = True
-            await self.init_2m(session)
+            await self.init_async(session)
         # RUN IN EVIL MODE
         page_f = {}
         for endpoint in self.endpoints:
-            parameter_page_Count = list(parameter)
-            parameter_page_Count.append(("showNumPages", "true"))
-            url = prepare_url(endpoint, parameter_page_Count)
+            url = parameter.gen_page_count(endpoint)
             ok = False
-            while not ok:
-                async with session.get(url) as response:
-                    if response.ok:
-                        page_f = json.loads(await response.text())
-                    ok = response.ok
-            for pageNum in (range(page_f["pages"])):
-                parameter_page_n = list(parameter[0:-1])
-                parameter_page_n.append(("page", str(pageNum)))
-                pach = [
-                    ("^timestamp:",  "timestamp:"),
-                    ("^original:",   "url:"),
-                    ("^mimetype:",   "mime:"),
-                    ("^statuscode:", "status:"),
-                    ("^=timestamp:",  "=timestamp:"),
-                    ("^=original:",   "=url:"),
-                    ("^=mimetype:",   "=mime:"),
-                    ("^=statuscode:", "=status:"),
-                    ("^~timestamp:",  "~timestamp:"),
-                    ("^~original:",   "~url:"),
-                    ("^~mimetype:",   "~mime:"),
-                    ("^~statuscode:", "~status:"),
-                    ("^!=timestamp:",  "!=timestamp:"),
-                    ("^!=original:",   "!=url:"),
-                    ("^!=mimetype:",   "!=mime:"),
-                    ("^!=statuscode:", "!=status:"),
-                    ("^!=timestamp:",  "!=timestamp:"),
-                    ("^!=original:",   "!=url:"),
-                    ("^!=mimetype:",   "!=mime:"),
-                    ("^!=statuscode:", "!=status:"),
-                    ("^!timestamp:",   "!timestamp:"),
-                    ("^!original:",    "!url:"),
-                    ("^!mimetype:",    "!mime:"),
-                    ("^!statuscode:",  "!status:"),
-                    ("^!~timestamp:",  "!~timestamp:"),
-                    ("^!~original:",   "!~url:"),
-                    ("^!~mimetype:",   "!~mime:"),
-                    ("^!~statuscode:", "!~status:"),
-                ]
-            url = prepare_url(endpoint, parameter_page_n, pach)
-            print(url)
-            ok = False
-            while not ok:
-                async with session.get(url) as response:
-                    if response.ok:
-                        links = (await response.text()).split("\n")
-                        for link in links:
-                            try:
-                                x = json.loads(link)
-                                yield common_crawl_index_url(x)
-                            except:
-                                pass
-                    ok = response.ok
-
-    async def lookup(self, url, params):
-        if not self.setup:
-            self.setup = True
-            await self.init_2()
-        # RUN IN EVIL MODE
-        list_url = []
-        async with ClientSession() as client:
-            page_f = {}
-            params.append(("output", "json"))
-            params.append(("url", url))
-            for endpoint in self.endpoints:
-                params.append(("showNumPages", "true"))
-
-                pach = [
-                    ("timestamp", "timestamp"),
-                    ("url", "original"),
-                    ("mime", "mimetype"),
-                    ("status", "statuscode"),
-                ]
-                url = prepare_url(endpoint, params, pach)
-                print(url)
-                ok = False
+            async with lock:
                 while not ok:
-                    async with client.get(url) as response:
-                        if response.ok:
-
-                            page_f = await response.text()
-
-                    ok = response.ok
-                params.append(("showNumPages", "false"))
-                page_f = json.loads(page_f)
-                for pageNum in (range(page_f["pages"])):
-                    params.append(("showNumPages", "false"))
-                    params.append(("page", pageNum))
-                    print("page:", pageNum)
-                    url = prepare_url(endpoint, params)
-                    ok = False
-                    while not ok:
-                        async with client.get(url) as response:
+                    try:
+                        async with session.get(url) as response:
                             if response.ok:
-                                links = (await response.text()).split("\n")
-                                for link in links:
+                                try:
+                                    page_f = json.loads(await response.text())
+                                    ok = response.ok
+                                    break
+                                except:
+                                    await asyncio.sleep(5)
+                                    continue
+                            else:
+                                continue
+                    except:
+                        await asyncio.sleep(5)
+            for pageNum in range(page_f["pages"]):
+                url = parameter.parameter_page_n(endpoint, count=pageNum)
+                ok = False
+                async with lock:
+                    while not ok:
+                        try:
+                            async with session.get(url) as response:
+                                if response.ok:
                                     try:
-                                        x = json.loads(link)
-                                        yield common_crawl_index_url(x)
+                                        links = (await response.text()).split("\n")
+                                        for link in links:
+                                            x = json.loads(link)
+                                            yield common_crawl_index_url(x)
+                                        ok = response.ok
+                                        break
                                     except:
-                                        pass
-                            ok = response.ok
+                                        await asyncio.sleep(5)
+                                        continue
+                        except:
+                            await asyncio.sleep(5)
 
-    def blocking_lookup(self, url, params_):
+    def blocking_lookup(self, url, parameter):
         if not self.setup:
             self.setup = True
             self.n_init_2()
         # RUN IN EVIL MODE
-        list_url = []
         page_f = {}
-        params_.append(("output", "json"))
-        params_.append(("url", url))
         for endpoint in self.endpoints:
-            params = list(params_)
-            params.append(("showNumPages", "true"))
-            url = prepare_url(endpoint, params)
+            url = parameter.gen_page_count(endpoint)
             ok = False
             while not ok:
-                response = requests.get(url)
-                if response.ok:
-                    page_f = response.text
-                ok = response.ok
-            params.append(("showNumPages", "false"))
-            page_f = json.loads(page_f)
-            for pageNum in (range(page_f["pages"])):
-                params.append(("showNumPages", "false"))
-                params.append(("page", pageNum))
-                url = prepare_url(endpoint, params)
-                print(url)
+                try:
+                    response = requests.get.get(url)
+                    if response.ok:
+                        try:
+                            page_f = json.loads(response.text)
+                            ok = response.ok
+                            break
+                        except:
+                            time.sleep(5)
+                            continue
+                    else:
+                        continue
+                except:
+                    time.sleep(5)
+            for pageNum in range(page_f["pages"]):
+                url = parameter.parameter_page_n(endpoint, count=pageNum)
                 ok = False
                 while not ok:
-                    response = requests.get(url)
-                    if response.ok:
-                        links = (response.text).split("\n")
-                        for link in links:
+                    try:
+                        response = requests.get(url)
+                        if response.ok:
                             try:
-                                x = json.loads(link)
-                                yield common_crawl_index_url(x)
+                                links = (response.text).split("\n")
+                                for link in links:
+                                    x = json.loads(link)
+                                    yield common_crawl_index_url(x)
+                                ok = response.ok
+                                break
                             except:
-                                pass
-                    ok = response.ok
+                                time.sleep(5)
+                                continue
+                    except:
+                        time.sleep(5)
 
 
 async def main_1():

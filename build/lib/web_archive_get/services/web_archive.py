@@ -6,7 +6,6 @@ import time
 from urllib import request
 from urllib.parse import urljoin
 from aiohttp import ClientSession
-from requests.models import PreparedRequest
 from warcio.archiveiterator import ArchiveIterator
 import asyncio
 import gzip
@@ -14,6 +13,68 @@ from web_archive_get.utils import prepare_url
 from web_archive_get.services.cdx import CDX
 from io import BytesIO
 import tldextract
+
+fls = [
+    ("urlkey", "urlkey"),
+    ("timestamp", "timestamp"),
+    ("url", "original"),
+    ("mime", "mimetype"),
+    ("status", "statuscode"),
+    ("digest", "digest"),
+    ("length", "length"),
+    ("offset", "offset"),
+    ("filename", "filename")
+]
+fliter_fliters = []
+for fl in fls:
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "",
+        "parameter": fl[0],
+        "replace_parameter": fl[1],
+        "replace_operator": ""
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "~",
+        "parameter": fl[0],
+        "replace_parameter": fl[1],
+        "replace_operator": "~"
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "=",
+        "parameter": fl[0],
+        "replace_parameter": fl[1],
+        "replace_operator": "="
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "!",
+        "parameter": fl[0],
+        "replace_parameter": fl[1],
+        "replace_operator": "!"
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "!=",
+        "parameter": fl[0],
+        "replace_parameter": fl[1],
+        "replace_operator": "!="
+    })
+    fliter_fliters.append({
+        "start": ".*",
+        "end": "",
+        "operator": "!~",
+        "parameter": fl[0],
+        "replace_parameter": fl[1],
+        "replace_operator": "!~"
+    })
 
 
 class web_archive_url():
@@ -71,60 +132,40 @@ class web_archive(CDX):
                     l[item] = i[count]
                 yield web_archive_url(l)
 
-    async def async_bulk_lookup(self, parameter, session):
-        parameter.append(("output", "json"))
+    async def async_bulk_lookup(self, perator, session):
         for endpoint in self.endpoints:
-            parameter_page_Count = list(parameter)
-            parameter_page_Count.append(("showNumPages", "true"))
-            pach = [
-                ("^timestamp:",  "timestamp:"),
-                ("^original:",   "url:"),
-                ("^mime:",   "mimetype:"),
-                ("^statuscode:", "status:"),
-                ("^=timestamp:",  "=timestamp:"),
-                ("^=original:",   "=url:"),
-                ("^=mimetype:",   "=:mime"),
-                ("^=statuscode:", "=status:"),
-                ("^~timestamp:",  "~timestamp:"),
-                ("^~original:",   "~url:"),
-                ("^~mime:",   "~mimetype:"),
-                ("^~statuscode:", "~status:"),
-                ("^!=timestamp:",  "!=timestamp:"),
-                ("^!=original:",   "!=url:"),
-                ("^!=mime:",   "!=mimetype:"),
-                ("^!=statuscode:", "!=status:"),
-                ("^!=timestamp:",  "!=timestamp:"),
-                ("^!=original:",   "!=url:"),
-                ("^!=mime:",   "!=mimetype:"),
-                ("^!=statuscode:", "!=status:"),
-                ("^!timestamp:",  "!timestamp:"),
-                ("^!original:",   "!url:"),
-                ("^!mime:",   "!mimetype:"),
-                ("^!statuscode:", "!status:"),
-                ("^!~timestamp:",  "!~timestamp:"),
-                ("^!~original:",   "!~url:"),
-                ("^!~mime:",   "!~mimetype:"),
-                ("^!~statuscode:", "!~status:"),
-            ]
-            url_count = prepare_url(endpoint, parameter_page_Count, pach)
+            url_count = perator.gen_page_count(
+                endpoint, filter_ps=fliter_fliters)
             async with lock:
-                async with session.get(url_count, timeout=9999999) as response:
-                    count_ = int(await response.text())
-                for i in range(count_):
-                    parameter_page_n = parameter[0:-1]
-                    parameter_page_n.append(("page", str(i)))
-                    parameter_page_n.append(("output", "json"))
-                    url_ = prepare_url(endpoint, parameter_page_n)
-                    while True:
-                        async with session.get(url_, timeout=9999999) as response:
-                            if response.ok:
+                while True:
+                    async with session.get(url_count, timeout=9999999) as response:
+                        if response.ok:
+                            count_ = int(await response.text())
+                            break
+                        else:
+                            print("web_archive Error:", await response.text())
+                            await asyncio.sleep(10)
+            for i in range(count_):
+                url_ = perator.parameter_page_n(
+                    endpoint, filter_ps=fliter_fliters, count=i)
+            async with lock:
+                while True:
+                    async with session.get(url_, timeout=9999999) as response:
+                        if response.ok:
+                            try:
                                 data = await response.json()
+                                if len(data) == 0:
+                                    break
                                 for i in data[1:]:
                                     l = {}
                                     for count, item in enumerate(data[0], start=0):
                                         l[item] = i[count]
                                     yield web_archive_url(l)
                                 break
+                            except:
+                                print("web_archive Error:", await response.text())
+                        else:
+                            print("web_archive Error:", await response.text())
 
 
 lock = asyncio.Lock()

@@ -64,7 +64,7 @@ topLevels = ['aaa', 'aarp', 'abarth', 'abb', 'abbott', 'abbvie', 'abc', 'able', 
              'saxo', 'sb', 'sbi', 'sbs', 'sc', 'sca', 'scb', 'schaeffler', 'schmidt', 'scholarships', 'school', 'schule', 'schwarz',
              'science', 'scjohnson', 'scor', 'scot', 'sd', 'se', 'search', 'seat', 'secure', 'security', 'seek', 'select', 'sener',
              'services', 'ses', 'seven', 'sew', 'sex', 'sexy', 'sfr', 'sg', 'sh', 'shangrila', 'sharp', 'shaw', 'shell', 'shia',
-             'shiksha', 'shoes', 'shop', 'shop ', 'shopping', 'shouji', 'show', 'showtime', 'shriram', 'si', 'silk', 'sina', 'singles',
+             'shiksha', 'shoes', 'shop', 'shopping', 'shouji', 'show', 'showtime', 'shriram', 'si', 'silk', 'sina', 'singles',
              'site', 'sj', 'sk', 'ski', 'skin', 'sky', 'skype', 'sl', 'sling', 'sm', 'smart', 'smile', 'sn', 'sncf', 'so', 'soccer',
              'social', 'softbank', 'software', 'sohu', 'solar', 'solutions', 'song', 'sony', 'soy', 'spa', 'space', 'spiegel', 'sport',
              'spot', 'spreadbetting', 'sr', 'srl', 'ss', 'st', 'stada', 'staples', 'star', 'starhub', 'statebank', 'statefarm', 'statoil',
@@ -107,6 +107,7 @@ async def main():
             json.add_fliter_mime("json", operator="~")
             json.add_fliter_status("200")
             # html.add_fliter_url("."+topLevel+"/$", operator="~")
+            bar()
             async for archive in web_archive_get.list_bulk([html, rss, atom, xml, json]):
                 url = archive.get_url()
                 mime = archive.get_mimetype()
@@ -128,7 +129,7 @@ async def main():
                         print(parsed_uri.netloc)
                 except:
                     pass
-            bar()
+            return list(url_seen), list(website_feed)
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()

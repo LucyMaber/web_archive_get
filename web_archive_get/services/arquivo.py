@@ -1,7 +1,7 @@
 
 import asyncio
 import json
-from tkinter import N
+from tkinter import N, Y
 from tkinter.messagebox import NO
 from urllib import request
 from urllib.parse import urljoin
@@ -203,6 +203,7 @@ class arquivo(CDX):
     async def async_bulk_lookup(self, parameter, session):
         for endpoint in self.endpoints:
             url_count = parameter.gen_page_count(endpoint)
+            print("url_count: ", url_count)
             async with lock:
                 while True:
                     async with sem:
@@ -212,33 +213,34 @@ class arquivo(CDX):
                                     count_ = int(await response.text())
                                     break
                                 else:
-                                    print("arquivo Error:", await response.text())
-                                    await asyncio.sleep(30)
+                                    count_ = 1
+                                    break
                             except:
                                 count_ = 1
+                                break
                 async with sem:
                     for i in range(count_):
-                        parameter_page_n = parameter[0:-1]
                         url_ = parameter.parameter_page_n(endpoint, count=i)
-                        async with lock:
-                            while True:
-                                async with session.get(url_, timeout=9999999) as response:
-                                    ok = response.ok
-                                    if ok:
-                                        a = await response.text()
-                                        links = (a).split("\n")
-                                        if len(links) == 0:
-                                            break
-                                        for link in links:
-                                            try:
-                                                x = json.loads(link)
-                                                yield arquivo_url(x)
-                                            except:
-                                                pass
-                                        break
-                                    else:
-                                        print("arquivo Error:", await response.text())
-                                        await asyncio.sleep(30)
+                        print("url_: ", url_)
+                        while True:
+                            async with session.get(url_, timeout=9999999) as response:
+                                ok = response.ok
+                                if ok:
+                                    a = await response.text()
+                                    if len(a) == 0:
+                                        print("T")
+                                        yield "None"
+                                    links = (a).split("\n")
+                                    for link in links:
+                                        print(link)
+                                        x = json.loads(link)
+                                        yield arquivo_url(x)
+                                    break
+                                else:
+                                    print("arquivo Error:", await response.text())
+                                    await asyncio.sleep(10)
+                                    continue
+                        return
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 
 import asyncio
 import json
-from tkinter import N
+from tkinter import N, Y
 from tkinter.messagebox import NO
 from urllib import request
 from urllib.parse import urljoin
@@ -12,6 +12,71 @@ from web_archive_get.utils import prepare_url
 
 import requests
 lock = asyncio.Lock()
+
+fls = [
+    "urlkey",
+    "timestamp",
+    "url",
+    "mime",
+    "status",
+    "digest",
+    "length",
+    "offset",
+    "filename"
+]
+fliter_fliters = []
+for fl in fls:
+    fliter_fliters.append({
+        "start": ".*",
+        "end": "",
+        "operator": "~",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": ""
+    })
+    fliter_fliters.append({
+        "start": ".*",
+        "end": "",
+        "operator": "~",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "~"
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "=",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "="
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "!",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "!"
+    })
+    fliter_fliters.append({
+        "start": "",
+        "end": "",
+        "operator": "!=",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "!="
+    })
+    fliter_fliters.append({
+        "start": ".*",
+        "end": "",
+        "operator": "!~",
+        "parameter": fl,
+        "replace_parameter": fl,
+        "replace_operator": "!~"
+    })
+
+
+sem = asyncio.Semaphore(1)
 
 
 class arquivo_url:
@@ -63,7 +128,6 @@ class arquivo(CDX):
             for endpoint in self.endpoints:
                 params.append(("showNumPages", "false"))
                 url = prepare_url(endpoint, params)
-                print(url)
                 ok = False
                 while not ok:
                     async with client.get(url, timeout=9999999) as response:
@@ -100,40 +164,13 @@ class arquivo(CDX):
         return list_url
 
     async def async_bulk_lookup(self, parameter, session):
-        parameter.append(("output", "json"))
         for endpoint in self.endpoints:
             while True:
                 await asyncio.sleep(5)
 
                 try:
-                    pach = [
-                        ("timestamp:",       "timestamp:"),
-                        ("url:",             "original:"),
-                        ("mime:",            "mimetype:"),
-                        ("status:",          "statuscode:"),
-                        ("=timestamp:",      "=timestamp:"),
-                        ("=url:",            "=original:"),
-                        ("=mime:",           "=mimetype:"),
-                        ("=status:",         "=statuscode:"),
-                        ("~timestamp:",      "~timestamp:"),
-                        ("~url:",            "~original:"),
-                        ("~mime:",           "~mimetype:"),
-                        ("~status:",         "~statuscode:"),
-                        ("!timestamp:",      "!timestamp:"),
-                        ("!url:",            "!original:"),
-                        ("!mime:",           "!mimetype:"),
-                        ("!status:",         "!statuscode:"),
-                        ("!=timestamp:",     "!=timestamp:"),
-                        ("!=url:",           "!=original:"),
-                        ("!=mime:",          "!=mimetype:"),
-                        ("!=status:",        "!=statuscode:"),
-                        ("!~timestamp:",     "!~timestamp:"),
-                        ("!~url:",           "!~original:"),
-                        ("!~mime:",          "!~mimetype:"),
-                        ("!~status:",        "!~statuscode:"),
-                    ]
-                    req_page = prepare_url(endpoint, parameter, pach)
-                    async with session.get(req_page, timeout=9999999) as response:
+                    url = parameter.parameter_page_n(endpoint)
+                    async with session.get(url, timeout=9999999) as response:
                         data = await response.json()
                     for i in data[1:]:
                         l = {}
@@ -145,7 +182,6 @@ class arquivo(CDX):
                     continue
 
     async def bulk_lookup(self, parameter, session):
-        parameter.append(("output", "json"))
         for endpoint in self.endpoints:
             parameter.append(("showNumPages", "false"))
             req_page = PreparedRequest()
@@ -165,33 +201,46 @@ class arquivo(CDX):
                                     pass
 
     async def async_bulk_lookup(self, parameter, session):
-        parameter.append(("output", "json"))
-        parameter_page_Count = parameter
-        parameter_page_Count.append(("showNumPages", "true"))
         for endpoint in self.endpoints:
-            url_count = prepare_url(endpoint, parameter_page_Count)
+            url_count = parameter.gen_page_count(endpoint)
+            print("url_count: ", url_count)
             async with lock:
-                async with session.get(url_count, timeout=9999999) as response:
-                    try:
-                        count_ = int(await response.text())
-                    except:
-                        count_ = 0
-                for i in range(count_):
-                    parameter_page_n = parameter[0:-1]
-                    parameter_page_n.append(("page", str(i)))
-                    url_ = prepare_url(endpoint, parameter_page_n)
-                    parameter_page_n.append(("page", str(i)))
-                    async with session.get(url_, timeout=9999999) as response:
-                        ok = response.ok
-                        if ok:
-                            a = await response.text()
-                            links = (a).split("\n")
-                            for link in links:
-                                try:
-                                    x = json.loads(link)
-                                    yield arquivo_url(x)
-                                except:
-                                    pass
+                while True:
+                    async with sem:
+                        async with session.get(url_count, timeout=9999999) as response:
+                            try:
+                                if response.ok:
+                                    count_ = int(await response.text())
+                                    break
+                                else:
+                                    count_ = 1
+                                    break
+                            except:
+                                count_ = 1
+                                break
+                async with sem:
+                    for i in range(count_):
+                        url_ = parameter.parameter_page_n(endpoint, count=i)
+                        print("url_: ", url_)
+                        while True:
+                            async with session.get(url_, timeout=9999999) as response:
+                                ok = response.ok
+                                if ok:
+                                    a = await response.text()
+                                    if len(a) == 0:
+                                        print("T")
+                                        yield "None"
+                                    links = (a).split("\n")
+                                    for link in links:
+                                        print(link)
+                                        x = json.loads(link)
+                                        yield arquivo_url(x)
+                                    break
+                                else:
+                                    print("arquivo Error:", await response.text())
+                                    await asyncio.sleep(10)
+                                    continue
+                        return
 
 
 if __name__ == '__main__':

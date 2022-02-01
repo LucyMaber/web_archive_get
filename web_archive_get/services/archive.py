@@ -47,16 +47,7 @@ class archive(services):
                 for i in m:
                     yield archive_url({"href": i.group(1), "rel": i.group(2), "datetime": i.group(3)})
 
-    async def async_list_subdoamin(self, url, roles={}):
-        yield
-
-    async def async_search_url_host(self, url, roles={}):
-        yield
-
-    async def async_search_url_subpath(self, url, roles={}):
-        yield
-
-    async def blocking_lookup(url, params):
+    async def list_bulk(self, parameter, session):
         yield
 
 

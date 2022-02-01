@@ -32,6 +32,14 @@ for fl in fls:
         "operator": "~",
         "parameter": fl,
         "replace_parameter": fl,
+        "replace_operator": ""
+    })
+    fliter_fliters.append({
+        "start": ".*",
+        "end": "",
+        "operator": "~",
+        "parameter": fl,
+        "replace_parameter": fl,
         "replace_operator": "~"
     })
     fliter_fliters.append({
@@ -66,6 +74,9 @@ for fl in fls:
         "replace_parameter": fl,
         "replace_operator": "!~"
     })
+
+
+sem = asyncio.Semaphore(1)
 
 
 class arquivo_url:
@@ -194,38 +205,40 @@ class arquivo(CDX):
             url_count = parameter.gen_page_count(endpoint)
             async with lock:
                 while True:
-                    async with session.get(url_count, timeout=9999999) as response:
-                        try:
-                            if response.ok:
-                                count_ = int(await response.text())
-                                break
-                            else:
-                                print("arquivo Error:", await response.text())
-                                await asyncio.sleep(30)
-                        except:
-                            count_ = 1
-                for i in range(count_):
-                    parameter_page_n = parameter[0:-1]
-                    url_ = parameter.parameter_page_n(endpoint, count=i)
-                    async with lock:
-                        while True:
-                            async with session.get(url_, timeout=9999999) as response:
-                                ok = response.ok
-                                if ok:
-                                    a = await response.text()
-                                    links = (a).split("\n")
-                                    if len(links) == 0:
-                                        break
-                                    for link in links:
-                                        try:
-                                            x = json.loads(link)
-                                            yield arquivo_url(x)
-                                        except:
-                                            pass
+                    async with sem:
+                        async with session.get(url_count, timeout=9999999) as response:
+                            try:
+                                if response.ok:
+                                    count_ = int(await response.text())
                                     break
                                 else:
                                     print("arquivo Error:", await response.text())
                                     await asyncio.sleep(30)
+                            except:
+                                count_ = 1
+                async with sem:
+                    for i in range(count_):
+                        parameter_page_n = parameter[0:-1]
+                        url_ = parameter.parameter_page_n(endpoint, count=i)
+                        async with lock:
+                            while True:
+                                async with session.get(url_, timeout=9999999) as response:
+                                    ok = response.ok
+                                    if ok:
+                                        a = await response.text()
+                                        links = (a).split("\n")
+                                        if len(links) == 0:
+                                            break
+                                        for link in links:
+                                            try:
+                                                x = json.loads(link)
+                                                yield arquivo_url(x)
+                                            except:
+                                                pass
+                                        break
+                                    else:
+                                        print("arquivo Error:", await response.text())
+                                        await asyncio.sleep(30)
 
 
 if __name__ == '__main__':
